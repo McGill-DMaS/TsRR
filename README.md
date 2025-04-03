@@ -73,8 +73,6 @@ This shows that a fully tied system might score higher than a system that ranks 
 Clone the repository and install NumPy:
 
 ```bash
-git clone https://github.com/yourusername/tsrr.git
-cd tsrr
-pip install numpy
+git clone https://github.com/McGill-DMaS/TsRR.git
 cd tsrr
 pip install numpy
