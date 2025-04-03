@@ -76,3 +76,5 @@ Clone the repository and install NumPy:
 git clone https://github.com/yourusername/tsrr.git
 cd tsrr
 pip install numpy
+cd tsrr
+pip install numpy
