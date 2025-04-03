@@ -23,7 +23,7 @@ For a given target document (or query), let:
 
 Then, TsRR is defined as:
 
-![TsRR Formula](https://latex.codecogs.com/svg.image?\mathrm{TsRR}=\begin{cases} \left(1-\left(\frac{\ln(1+F_G)}{\ln(1+F_{\mathrm{total}})}\right)^{\frac{1}{\alpha}}\right)\frac{1}{r_{\mathrm{pre}}+1},&\text{if }F_{\mathrm{total}}>0,\\1,&\text{if }F_{\mathrm{total}}=0. \end{cases})
+![TsRR Formula](https://latex.codecogs.com/svg.image?\mathrm{TsRR}=\begin{cases}\left(1-\left(\frac{\ln(1+F_G)}{\ln(1+F_{\mathrm{total}})}\right)^{\frac{1}{\alpha}}\right)\frac{1}{r_{\mathrm{pre}}+1},&\text{if }F_{\mathrm{total}}>0,\\1,&\text{if }F_{\mathrm{total}}=0. \end{cases})
 
 ### How It Works
 
