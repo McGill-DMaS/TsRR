@@ -23,7 +23,7 @@ For a given target document (or query), let:
 
 Then, TsRR is defined as:
 
-![TsRR Formula](assets/tsrr_formula.svg)
+![TsRR Formula](assets/tsrr.png)
 
 ### How It Works
 
