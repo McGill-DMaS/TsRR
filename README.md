@@ -1,1 +1,1 @@
-# TsRR
+# Tie-Sensitive Reciprocal Rank (TsRR)
