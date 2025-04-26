@@ -74,5 +74,3 @@ Clone the repository and install NumPy:
 
 ```bash
 git clone https://github.com/McGill-DMaS/TsRR.git
-cd tsrr
-pip install numpy
