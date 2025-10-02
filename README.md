@@ -1,72 +1,84 @@
 # TsRR: Tie-sensitive Reciprocal Rank
 
-TsRR is a ranking metric designed for information retrieval systems that properly account for tied relevance scores. Ties occur when multiple documents receive identical scores, which can lead to misleading evaluations with traditional Mean Reciprocal Rank (MRR). TsRR addresses this challenge by penalizing excessive ties while still rewarding systems that distinguish truly relevant documents.
+TsRR is a ranking metric for information retrieval systems that properly accounts for *tied relevance scores*. Ties occur when multiple documents receive identical scores, which can lead to misleading evaluations with traditional Mean Reciprocal Rank (MRR). TsRR addresses this challenge by **penalizing excessive ties** while still rewarding systems that distinguish truly relevant documents.
 
 ## Motivation
 
-In many learning-to-rank scenarios, multiple documents may receive the same relevance score for a given query. Standard metrics assume a strict ranking order and may overestimate performance when ties are present. For example, in a fully tied scenario (i.e., when a system makes no distinctions between documents), the expected rank of a relevant document can be deceptively favorable. TsRR was proposed to counter this paradox by:
+In many learning-to-rank scenarios, multiple documents may receive the same relevance score. Standard metrics assume a strict ranking order and may overestimate performance when ties are present. For example, in a fully tied scenario (i.e., when a system makes no distinctions between documents), the expected rank of a relevant document can appear deceptively favorable.
 
-- **Mitigating over-rewarding of fully tied rankings:** Systems that group too many items together receive a substantial penalty.
-- **Maintaining computational efficiency:** TsRR uses simple logarithmic and multiplicative operations.
-- **Adapting flexibly to tie scenarios:** The tunable parameter ![alpha](https://latex.codecogs.com/svg.image?\alpha%20>%200) adjusts the sensitivity of the tie penalty.
+TsRR was proposed to counter this paradox by:
+
+- **Mitigating over-rewarding of fully tied rankings:** Large tie groups of irrelevant items receive a proportional penalty.  
+- **Preserving sensitivity to genuine ranking effort:** Systems that push relevant items upward, or into smaller tie groups, are rewarded.  
+- **Reducing to known cases:** In the absence of ties, TsRR reduces to standard RR; in the extreme case of a fully tied list, TsRR reduces to the pessimistic RR (PRR).  
 
 ## The TsRR Formula
 
-For a given target document (or query), let:
+For a given query, let:
 
-- ![r_pre](https://latex.codecogs.com/svg.image?r_{\mathrm{pre}}) be the number of documents ranked before the tie group that contains at least one relevant document.
-- ![G](https://latex.codecogs.com/svg.image?G) denote the tie group that contains the relevant document(s).
-- ![k](https://latex.codecogs.com/svg.image?k) be the number of relevant documents within ![G](https://latex.codecogs.com/svg.image?G).
-- ![F_G](https://latex.codecogs.com/svg.image?F_G%20=%20|G|%20-%20k) be the number of irrelevant (false positive) documents in the tie group.
-- ![F_total](https://latex.codecogs.com/svg.image?F_{\mathrm{total}}) be the total number of irrelevant documents retrieved.
-- ![alpha](https://latex.codecogs.com/svg.image?\alpha%20>%200) be a parameter governing the sensitivity of the tie penalty.
+- \( r_{\mathrm{pre}} \): the number of documents strictly ranked before the tie group containing the first relevant document.  
+- \( G \): the tie group containing the first relevant document(s).  
+- \( k \): the number of relevant documents within \( G \).  
+- \( |G_{\mathrm{irr}}| = |G| - k \): the number of irrelevants in that tie group.  
+- \( N_{\mathrm{irr}} \): the total number of irrelevants retrieved.  
+- \( E[L] \): the expected position of the first relevant document *within its tie group* (computed combinatorially).  
+- \( L_{\max} = |G| - k + 1 \): the worst-case position of the first relevant in the tie.  
 
-Then, TsRR is defined as:
+We define the tie penalty factor:
 
-![TsRR Formula](assets/tsrr.png)
+\[
+\tau = \frac{|G_{\mathrm{irr}}|}{N_{\mathrm{irr}}}
+\]
 
-### How It Works
+which represents the fraction of all irrelevants that are tied with the first relevant document.
+
+The tie-adjusted expected rank is then:
+
+\[
+E_{\tau}[L] = (1 - \tau)\,E[L] + \tau\,L_{\max}
+\]
+
+Finally, TsRR is:
+
+\[
+\mathrm{TsRR} = \frac{1}{r_{\mathrm{pre}} + E_{\tau}[L]}
+\]
+
+## How It Works
 
 1. **Tie Handling:**  
-   The logarithmic term ![ln(1+F_G)](https://latex.codecogs.com/svg.image?\ln(1+F_G)) grows sublinearly, which means that even if many irrelevant documents are tied with the relevant ones, the penalty is moderated. Normalizing by ![ln(1+F_total)](https://latex.codecogs.com/svg.image?\ln(1+F_{\mathrm{total}})) scales the penalty in context of the overall retrieval performance.
+   - If many irrelevants are tied with the first relevant, \( \tau \) grows, shifting the expectation toward the *worst case* position.  
+   - If the tie is small or contains mostly relevants, \( \tau \) is small, and TsRR behaves more like tie-aware RR (ta-RR).  
 
 2. **Rank Rewarding:**  
-   Multiplying by ![1/(r_pre+1)](https://latex.codecogs.com/svg.image?\frac{1}{r_{\mathrm{pre}}+1}) rewards systems that rank the tie group (containing at least one relevant document) higher in the list.
+   - The reciprocal form ensures that systems placing the first relevant earlier (smaller denominator) get higher scores.  
 
-3. **Parameter ![alpha](https://latex.codecogs.com/svg.image?\alpha):**  
-   The sensitivity parameter adjusts how harshly the metric penalizes ties:
-   - Lower ![alpha](https://latex.codecogs.com/svg.image?\alpha) values (e.g., 0.5 or 1.0) are more forgiving.
-   - Higher ![alpha](https://latex.codecogs.com/svg.image?\alpha) values (e.g., 2.0 or 4.0) impose a stricter penalty on ties.
+3. **Special Cases:**  
+   - **No ties:** TsRR = \( 1/r \), reducing exactly to classical Reciprocal Rank.  
+   - **Full tie (all docs tied, one relevant):** TsRR = \( 1/R \), identical to pessimistic RR (PRR).  
 
-### An Illustrative Comparison
+## An Illustrative Comparison
 
-Consider two scenarios:
+- **Fully Tied System (R documents, one relevant):**  
+  \[
+  r_{\mathrm{pre}}=0,\quad |G|=R,\quad k=1,\quad \tau=1
+  \]  
+  \[
+  E_{\tau}[L]=R,\quad \mathrm{TsRR}=\frac{1}{R}
+  \]  
+  matching PRR.  
 
-- **Fully Tied System:**  
-  All retrieved documents have the same score. Suppose there is one relevant document among ![R](https://latex.codecogs.com/svg.image?R) documents. In a fully tied scenario, every position is equally likely, so the expected position is:
+- **Strict Ranking (first relevant at rank r, no ties):**  
+  \[
+  E[L]=1,\quad \tau=0,\quad \mathrm{TsRR}=\frac{1}{r}
+  \]  
+  matching classical RR.  
 
-  ![E(L)](https://latex.codecogs.com/svg.image?E[L]=\frac{R+1}{2})
-
-  and the reciprocal rank (ta-RR) becomes:
-
-  ![ta-RR fully tied](https://latex.codecogs.com/svg.image?\text{ta-RR}=\frac{2}{R+1})
-
-- **Distinct Ranking System:**  
-  Suppose a system places the relevant document at rank ![r](https://latex.codecogs.com/svg.image?r) (with no ties around it). Then:
-  - ![r_pre = r-1](https://latex.codecogs.com/svg.image?r_{\mathrm{pre}}=r-1)
-  - The expected position within the tie group is 1, so the reciprocal rank is:
-
-  ![ta-RR ranked](https://latex.codecogs.com/svg.image?\text{ta-RR}=\frac{1}{r})
-
-If ![r > (R+1)/2](https://latex.codecogs.com/svg.image?r>\frac{R+1}{2}), then:
-
-  ![1/r < 2/(R+1)](https://latex.codecogs.com/svg.image?\frac{1}{r}<\frac{2}{R+1})
-
-This shows that a fully tied system might score higher than a system that ranks the relevant document lower. TsRR corrects this by penalizing ties appropriately.
+Thus TsRR interpolates between ta-RR and PRR while penalizing larger tie groups appropriately.
 
 ## Requirements
 
-- **[NumPy](https://numpy.org/)** (the only dependency)
+- **[NumPy](https://numpy.org/)**  
 
 ## Installation
 
