@@ -1,175 +1,149 @@
 import numpy as np
+import warnings
+from math import comb
 
-def tsrr(target, results, similarities, alpha=0.5, reduction='mean'):
+def expected_rank(grank, ns: int, nt: int) -> float:
     """
-    Tie-Sensitive Reciprocal Rank (tsrr) function.
+    Expected rank of the first target in a randomly ranked set.
 
-    This function computed the tie-sensitive reciprocal rank metric.
-    It accepts a target label (or multiple target labels), 
-    corresponding result labels, and similarity scores. The inputs may be provided 
-    as Python lists or NumPy ndarrays.
+    Parameters:
+        grank (int): Rank offset before this set (we pass 0 to get within-tie expectation).
+        ns (int): Number of non-target (irrelevant) items in the set.
+        nt (int): Number of target (relevant) items in the set.
 
-    The function handles inputs as follows:
-    
-    - **Single Target:**
-      - If `target` is not a list or NumPy ndarray (or is a 0-dim NumPy scalar), it is 
-        treated as a single target.
-      - In this case, both `results` and `similarities` must be provided as lists or 1D 
-        NumPy arrays of equal length.
-    
-    - **Multiple Targets:**
-      - If `target` is a list or a 1D NumPy ndarray, it is treated as containing multiple target labels.
-      - In this scenario, both `results` and `similarities` must be provided as 2D lists or 2D NumPy arrays.
-      - The number of sublists in `results` and `similarities` must match the number of target labels.
-      - Each sublist in `results` must have the same length as the corresponding sublist in `similarities`.
-
-    Parameters
-    ----------
-    target : any, list, or numpy.ndarray
-        A single target label or a collection of target labels. If not provided as a list or 
-        1D array (or if provided as a 0-dim NumPy scalar), it is treated as a single target.
-    results : list or numpy.ndarray
-        For a single target, a list or 1D array of result labels.
-        For multiple targets, a 2D list or 2D array where each sublist contains result labels 
-        corresponding to a target label.
-    similarities : list or numpy.ndarray
-        For a single target, a list or 1D array of similarity scores corresponding element-wise 
-        to `results`.
-        For multiple targets, a 2D list or 2D array where each sublist contains similarity scores 
-        corresponding to the result labels of a target.
-    alpha : float, optional
-        A positive float controlling the sensitivity to ties in the TSRR computation. A higher value 
-        makes the metric more sensitive to ties. Default is 0.5.
-    reduction : str, optional
-        Specifies how to aggregate the TSRR scores:
-          - 'mean': Return the mean TSRR score over all targets.
-          - 'none': Return an array of TSRR scores for each target.
-        Default is 'mean'.
-
-    Returns
-    -------
-    tsrr_score : float or list
-        The computed tie-sensitive reciprocal rank score(s). If `reduction` is 'mean', a single float is returned 
-        representing the average TSRR over all targets. If `reduction` is 'none', a 1D list of TSRR scores 
-        is returned, one for each target.
-
-    Raises
-    ------
-    ValueError
-        If the input formats do not meet the expected criteria. For example:
-          - For a single target, if `results` and `similarities` are not lists or 1D arrays,
-            or if their lengths differ.
-          - For multiple targets, if `results` and `similarities` are not 2D lists or 2D arrays,
-            or if the number of sublists does not match the number of target labels, or if any 
-            corresponding sublists differ in length.
-
-    Examples
-    --------
-    Single target example:
-    >>> tsrr("label1", ["label2", "label1", "label3"], [0.8, 0.9, 0.7])
-    0.6666666666666666   # (computed as 1/(2^alpha) when alpha=0.5)
-
-    Multiple targets example:
-    >>> tsrr(["label1", "label2"],
-    ...      [["label1", "labelA"], ["labelB", "label2"]],
-    ...      [[0.9, 0.8], [0.85, 0.95]],
-    ...      alpha=0.5, reduction='none')
-    array([1.0, 0.5])  # Example computed values
+    Returns:
+        float: grank + E[min position of a target among ns+nt items].
     """
+    # Interpret ns as non-targets and nt as targets; total size is ns + nt.
+    ns = ns + nt  # follow the provided reference implementation semantics
+    if ns <= 0 or nt <= 0 or nt > ns:
+        raise ValueError("Invalid input: ns must be >= nt > 0")
 
+    expected_r = 0.0
+    for rank in range(1, ns + 1):
+        prob = comb(ns - rank, nt - 1) / comb(ns, nt)
+        expected_r += rank * prob
+    return grank + expected_r
+
+
+def tsrr(target, results, similarities, alpha=None, reduction='mean'):
+    """
+    Tie-sensitive Reciprocal Rank (TsRR) with tie-size penalty.
+
+    TsRR = 1 / ( r_pre + E_tau[L] ), where
+        E_tau[L] = (1 - tau) * E[L] + tau * L_max
+        tau      = |G_irr| / N_irr
+        E[L]     = expected rank of the first relevant *within the tie group* G
+                   (computed via combinatorics; see expected_rank with grank=0)
+        L_max    = |G| - k + 1  (worst position of first relevant in G)
+
+    Inputs accept single or batched targets, as before.
+    'alpha' is deprecated and ignored (kept for backward compatibility).
+    """
+    if alpha is not None:
+        warnings.warn(
+            "tsrr(alpha=...) is deprecated and ignored; the updated TsRR no longer uses alpha.",
+            DeprecationWarning
+        )
+
+    # ---------- normalize inputs to batched form ----------
     if not isinstance(target, (list, np.ndarray)):
-        # Validate that results and similarities are lists of the same length.
         if not (isinstance(results, list) and isinstance(similarities, list)):
-            raise ValueError("For a single target, both 'results' and 'similarities' must be lists.")
+            raise ValueError("For a single target, 'results' and 'similarities' must be lists.")
         if len(results) != len(similarities):
-            raise ValueError("For a single target, 'results' and 'similarities' must have equal lengths.")
-        
+            raise ValueError("Lengths of 'results' and 'similarities' must match (single target).")
         target = [target]
         results = [results]
         similarities = [similarities]
-
     elif isinstance(target, np.ndarray) and target.ndim == 0:
-        # Single target: target is a NumPy scalar.
-        if not (isinstance(results, (list, np.ndarray)) and isinstance(similarities, (list, np.ndarray))):
-            raise ValueError("For a single target, both 'results' and 'similarities' must be lists or numpy arrays.")
         if isinstance(results, np.ndarray):
             results = results.tolist()
         if isinstance(similarities, np.ndarray):
             similarities = similarities.tolist()
         if len(results) != len(similarities):
-            raise ValueError("For a single target, 'results' and 'similarities' must have equal lengths.")
-        
-        target = [target.item()]  # Convert scalar to a Python type.
+            raise ValueError("Lengths of 'results' and 'similarities' must match (single target).")
+        target = [target.item()]
         results = [results]
         similarities = [similarities]
-
     else:
-        # Multiple targets: target is either a list or a non-scalar ndarray.
         if isinstance(target, np.ndarray):
-            # For multiple targets, require target to be 1D.
             if target.ndim != 1:
-                raise ValueError("For multiple targets, 'target' must be a 1D array.")
+                raise ValueError("For multiple targets, 'target' must be 1D.")
             target = target.tolist()
-        
-        # Validate that results is 2D.
+
         if isinstance(results, np.ndarray):
             if results.ndim != 2:
-                raise ValueError("For multiple targets, 'results' must be a 2D array.")
+                raise ValueError("For multiple targets, 'results' must be 2D.")
             results = results.tolist()
         else:
-            if not (isinstance(results, list) and all(isinstance(row, list) for row in results)):
-                raise ValueError("For multiple targets, 'results' must be a 2D list or a 2D numpy array.")
-        
-        # Validate that similarities is 2D.
+            if not (isinstance(results, list) and all(isinstance(r, list) for r in results)):
+                raise ValueError("For multiple targets, 'results' must be a 2D list/array.")
+
         if isinstance(similarities, np.ndarray):
             if similarities.ndim != 2:
-                raise ValueError("For multiple targets, 'similarities' must be a 2D array.")
+                raise ValueError("For multiple targets, 'similarities' must be 2D.")
             similarities = similarities.tolist()
         else:
-            if not (isinstance(similarities, list) and all(isinstance(row, list) for row in similarities)):
-                raise ValueError("For multiple targets, 'similarities' must be a 2D list or a 2D numpy array.")
-        
-        # The number of sublists in results and similarities should match the number of target labels.
-        if len(results) != len(target):
-            raise ValueError("For multiple targets, the number of sublists in 'results' must match the number of target labels.")
-        if len(similarities) != len(target):
-            raise ValueError("For multiple targets, the number of sublists in 'similarities' must match the number of target labels.")
-        
-        # Ensure each sublist in results and similarities have the same length.
-        for i, (res_row, sim_row) in enumerate(zip(results, similarities)):
-            if len(res_row) != len(sim_row):
-                raise ValueError(f"Mismatch in lengths of sublists at index {i} between 'results' and 'similarities'.")
-    
-    if not isinstance(results, (np.ndarray)):
-        results = np.array(results)
+            if not (isinstance(similarities, list) and all(isinstance(s, list) for s in similarities)):
+                raise ValueError("For multiple targets, 'similarities' must be a 2D list/array.")
 
-    if not isinstance(similarities, (np.ndarray)):
-        similarities = np.array(similarities)
+        if len(results) != len(target) or len(similarities) != len(target):
+            raise ValueError("Number of rows in 'results'/'similarities' must match #targets.")
 
-    tsrr_values = []
+        for i, (r_row, s_row) in enumerate(zip(results, similarities)):
+            if len(r_row) != len(s_row):
+                raise ValueError(f"Row {i}: 'results' and 'similarities' lengths differ.")
+
+    # numpy arrays for convenience
+    results = np.array(results, dtype=object)
+    similarities = np.array(similarities, dtype=float)
+
+    scores = []
     for i, label in enumerate(target):
-        sorted_indices = np.argsort(similarities[i])[::-1]
-        sorted_similarities = similarities[i, sorted_indices]
-        sorted_results = results[i, sorted_indices]
-        target_indices = np.where(sorted_results == label)[0]
-        if target_indices.size > 0:
-            first_index = target_indices[0]
-            target_score = sorted_similarities[first_index]
-        else:
-            tsrr_values.append(0)
+        # sort by similarity desc
+        order = np.argsort(similarities[i])[::-1]
+        sims = similarities[i, order]
+        labs = results[i, order]
+
+        # indices of all relevant items (== target)
+        rel_idx = np.where(labs == label)[0]
+        if rel_idx.size == 0:
+            scores.append(0.0)
             continue
 
-        r_pre = np.where(sorted_similarities > target_score)[0].shape[0]
-        F_total = sorted_results.shape[0] - np.where(sorted_results == label)[0].shape[0]
-        same_score_indices = np.where(sorted_similarities == target_score)[0]
-        F_g = np.where(sorted_results[same_score_indices] != label)[0].shape[0]
-        if F_total == 0:
-            tsrr_values.append(1)
-            continue
-        tsrr_values.append((1 - ((np.log(1 + F_g) / np.log(1 + F_total)) ** (1/alpha))) * (1/(r_pre+1)))
+        # first relevant's similarity and position
+        j = rel_idx[0]
+        s = sims[j]
 
-    if reduction == 'mean':
-        return np.mean(tsrr_values)
-    
-    return tsrr_values
-    
+        # r_pre: items strictly above this tie
+        r_pre = int(np.sum(sims > s))
+
+        # tie group G (all items with the same score s)
+        tie_idx = np.where(sims == s)[0]
+        G = int(tie_idx.size)
+        k = int(np.sum(labs[tie_idx] == label))  # #relevants in G
+        ns = G - k                               # #irrelevants in G
+
+        # totals (for tau)
+        N = int(labs.size)
+        R_total = int(np.sum(labs == label))
+        N_irr = N - R_total
+
+        # tau = |G_irr| / N_irr (0 if no irrelevants overall)
+        tau = 0.0 if N_irr == 0 else ns / float(N_irr)
+
+        # E[L]: expected rank of FIRST relevant *within tie G*
+        # use the provided combinatorial routine with grank=0, ns=|G_irr|, nt=k
+        E_L = expected_rank(0, ns, k)
+
+        # L_max within the tie
+        L_max = ns + 1.0  # == |G| - k + 1
+
+        # blend expected and worst-case ranks
+        E_tau = (1.0 - tau) * E_L + tau * L_max
+
+        # TsRR
+        denom = r_pre + E_tau
+        scores.append(1.0 / denom)
+
+    return float(np.mean(scores)) if reduction == 'mean' else scores
