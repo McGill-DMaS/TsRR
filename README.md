@@ -16,62 +16,50 @@ TsRR was proposed to counter this paradox by:
 
 For a given query, let:
 
-- \( r_{\mathrm{pre}} \): the number of documents strictly ranked before the tie group containing the first relevant document.  
-- \( G \): the tie group containing the first relevant document(s).  
-- \( k \): the number of relevant documents within \( G \).  
-- \( |G_{\mathrm{irr}}| = |G| - k \): the number of irrelevants in that tie group.  
-- \( N_{\mathrm{irr}} \): the total number of irrelevants retrieved.  
-- \( E[L] \): the expected position of the first relevant document *within its tie group* (computed combinatorially).  
-- \( L_{\max} = |G| - k + 1 \): the worst-case position of the first relevant in the tie.  
+- ![r_pre](https://latex.codecogs.com/svg.image?r_{\mathrm{pre}}) = the number of documents strictly ranked before the tie group containing the first relevant document.  
+- ![G](https://latex.codecogs.com/svg.image?G) = the tie group containing the first relevant document(s).  
+- ![k](https://latex.codecogs.com/svg.image?k) = the number of relevant documents within ![G](https://latex.codecogs.com/svg.image?G).  
+- ![G_irr](https://latex.codecogs.com/svg.image?|G_{\mathrm{irr}}|=|G|-k) = the number of irrelevants in that tie group.  
+- ![N_irr](https://latex.codecogs.com/svg.image?N_{\mathrm{irr}}) = the total number of irrelevants retrieved.  
+- ![E(L)](https://latex.codecogs.com/svg.image?E[L]) = the expected position of the first relevant document *within its tie group* (computed combinatorially).  
+- ![L_max](https://latex.codecogs.com/svg.image?L_{\max}=|G|-k+1) = the worst-case position of the first relevant in the tie.  
 
 We define the tie penalty factor:
 
-\[
-\tau = \frac{|G_{\mathrm{irr}}|}{N_{\mathrm{irr}}}
-\]
+![tau](https://latex.codecogs.com/svg.image?\tau=\frac{|G_{\mathrm{irr}}|}{N_{\mathrm{irr}}})
 
 which represents the fraction of all irrelevants that are tied with the first relevant document.
 
 The tie-adjusted expected rank is then:
 
-\[
-E_{\tau}[L] = (1 - \tau)\,E[L] + \tau\,L_{\max}
-\]
+![E_tau](https://latex.codecogs.com/svg.image?E_{\tau}[L]=(1-\tau)E[L]+\tau\,L_{\max})
 
 Finally, TsRR is:
 
-\[
-\mathrm{TsRR} = \frac{1}{r_{\mathrm{pre}} + E_{\tau}[L]}
-\]
+![TsRR](https://latex.codecogs.com/svg.image?\mathrm{TsRR}=\frac{1}{r_{\mathrm{pre}}+E_{\tau}[L]})
 
 ## How It Works
 
 1. **Tie Handling:**  
-   - If many irrelevants are tied with the first relevant, \( \tau \) grows, shifting the expectation toward the *worst case* position.  
-   - If the tie is small or contains mostly relevants, \( \tau \) is small, and TsRR behaves more like tie-aware RR (ta-RR).  
+   - If many irrelevants are tied with the first relevant, ![tau](https://latex.codecogs.com/svg.image?\tau) grows, shifting the expectation toward the *worst case* position.  
+   - If the tie is small or contains mostly relevants, ![tau](https://latex.codecogs.com/svg.image?\tau) is small, and TsRR behaves more like tie-aware RR (ta-RR).  
 
 2. **Rank Rewarding:**  
    - The reciprocal form ensures that systems placing the first relevant earlier (smaller denominator) get higher scores.  
 
 3. **Special Cases:**  
-   - **No ties:** TsRR = \( 1/r \), reducing exactly to classical Reciprocal Rank.  
-   - **Full tie (all docs tied, one relevant):** TsRR = \( 1/R \), identical to pessimistic RR (PRR).  
+   - **No ties:** TsRR = ![1/r](https://latex.codecogs.com/svg.image?\frac{1}{r}), reducing exactly to classical Reciprocal Rank.  
+   - **Full tie (all docs tied, one relevant):** TsRR = ![1/R](https://latex.codecogs.com/svg.image?\frac{1}{R}), identical to pessimistic RR (PRR).  
 
 ## An Illustrative Comparison
 
 - **Fully Tied System (R documents, one relevant):**  
-  \[
-  r_{\mathrm{pre}}=0,\quad |G|=R,\quad k=1,\quad \tau=1
-  \]  
-  \[
-  E_{\tau}[L]=R,\quad \mathrm{TsRR}=\frac{1}{R}
-  \]  
+  ![fully_tied](https://latex.codecogs.com/svg.image?r_{\mathrm{pre}}=0,\;|G|=R,\;k=1,\;\tau=1)  
+  ![fully_tied_result](https://latex.codecogs.com/svg.image?E_{\tau}[L]=R,\;\;\mathrm{TsRR}=\frac{1}{R})  
   matching PRR.  
 
 - **Strict Ranking (first relevant at rank r, no ties):**  
-  \[
-  E[L]=1,\quad \tau=0,\quad \mathrm{TsRR}=\frac{1}{r}
-  \]  
+  ![strict_case](https://latex.codecogs.com/svg.image?E[L]=1,\;\tau=0,\;\mathrm{TsRR}=\frac{1}{r})  
   matching classical RR.  
 
 Thus TsRR interpolates between ta-RR and PRR while penalizing larger tie groups appropriately.
