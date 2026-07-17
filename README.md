@@ -46,27 +46,27 @@ Let:
 
 The expected position of the first relevant candidate within the tie group is:
 
-$$
+```math
 \mathbb{E}[L] = \frac{|G|+1}{k+1}.
-$$
+```
 
 The worst-case position of the first relevant candidate within the tie group is:
 
-$$
+```math
 L_{\max} = |G|-k+1.
-$$
+```
 
 ### Tie-Penalty Factor
 
 The tie-penalty factor is the fraction of all retrieved irrelevant candidates that are tied with the first relevant candidate:
 
-$$
+```math
 \tau =
 \begin{cases}
-\dfrac{|G_{\mathrm{irr}}|}{N_{\mathrm{irr}}}, & N_{\mathrm{irr}} > 0, \\[6pt]
+\dfrac{|G_{\mathrm{irr}}|}{N_{\mathrm{irr}}}, & N_{\mathrm{irr}} > 0, \\
 0, & N_{\mathrm{irr}} = 0.
 \end{cases}
-$$
+```
 
 A larger $\tau$ indicates that the model has failed to distinguish the first relevant candidate from a larger fraction of the irrelevant retrieval pool.
 
@@ -74,22 +74,22 @@ A larger $\tau$ indicates that the model has failed to distinguish the first rel
 
 TsRR interpolates between the expected and worst-case positions within the tie group:
 
-$$
+```math
 \mathbb{E}_{\tau}[L]
 =
 (1-\tau)\mathbb{E}[L]
 +
 \tau L_{\max}.
-$$
+```
 
 The query-level TsRR score is then:
 
-$$
+```math
 \mathrm{TsRR}
 =
 \frac{1}
 {r_{\mathrm{pre}}+\mathbb{E}_{\tau}[L]}.
-$$
+```
 
 For a set of queries, the final score is the arithmetic mean of their query-level TsRR values.
 
@@ -109,19 +109,19 @@ Consequently, TsRR distinguishes between systems that produce similar nominal ra
 
 When the first relevant candidate is not tied:
 
-$$
+```math
 |G|=k=1,\qquad
 \tau=0,\qquad
 \mathbb{E}_{\tau}[L]=1.
-$$
+```
 
 Therefore:
 
-$$
+```math
 \mathrm{TsRR}
 =
 \frac{1}{r_{\mathrm{pre}}+1},
-$$
+```
 
 which is exactly classical Reciprocal Rank.
 
@@ -129,24 +129,24 @@ which is exactly classical Reciprocal Rank.
 
 Suppose all $R$ candidates are tied and exactly one is relevant:
 
-$$
+```math
 r_{\mathrm{pre}}=0,\qquad
 |G|=R,\qquad
 k=1,\qquad
 \tau=1.
-$$
+```
 
 Then:
 
-$$
+```math
 \mathbb{E}_{\tau}[L]=L_{\max}=R
-$$
+```
 
 and:
 
-$$
+```math
 \mathrm{TsRR}=\frac{1}{R},
-$$
+```
 
 which is identical to pessimistic Reciprocal Rank.
 
